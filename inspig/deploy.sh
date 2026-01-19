@@ -117,8 +117,8 @@ elif [ "$1" == "-last" ]; then
     echo ">>> 모드: 최근 ${COMMIT_COUNT}개 커밋 변경 파일 배포"
     echo ""
 
-    # 최근 N개 커밋에서 변경된 파일 목록
-    ALL_FILES=$(git diff --name-only HEAD~${COMMIT_COUNT} HEAD 2>/dev/null | sort -u)
+    # 최근 N개 커밋에서 변경된 파일 목록 (모노레포 구조로 inspig/ 접두사 제거)
+    ALL_FILES=$(git diff --name-only HEAD~${COMMIT_COUNT} HEAD 2>/dev/null | sed 's|^inspig/||' | sort -u)
 
     # 제외 패턴 필터링
     DEPLOY_FILES=$(filter_files "$ALL_FILES")
@@ -140,10 +140,10 @@ else
     echo ">>> 모드: 변경 파일만 배포 (커밋되지 않은 파일)"
     echo ""
 
-    # Git 변경 파일 목록 (staged + modified + untracked)
-    CHANGED_FILES=$(git diff --name-only HEAD 2>/dev/null)
-    STAGED_FILES=$(git diff --cached --name-only 2>/dev/null)
-    UNTRACKED_FILES=$(git ls-files --others --exclude-standard 2>/dev/null)
+    # Git 변경 파일 목록 (staged + modified + untracked) - 모노레포 구조로 inspig/ 접두사 제거
+    CHANGED_FILES=$(git diff --name-only HEAD 2>/dev/null | sed 's|^inspig/||')
+    STAGED_FILES=$(git diff --cached --name-only 2>/dev/null | sed 's|^inspig/||')
+    UNTRACKED_FILES=$(git ls-files --others --exclude-standard 2>/dev/null | sed 's|^inspig/||')
 
     # 합치고 중복 제거
     ALL_FILES=$(echo -e "$CHANGED_FILES\n$STAGED_FILES\n$UNTRACKED_FILES" | sort -u | grep -v '^$')
