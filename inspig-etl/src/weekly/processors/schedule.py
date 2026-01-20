@@ -281,8 +281,9 @@ class ScheduleProcessor(BaseProcessor):
             self._count_schedule('150003', '010004', v_sdt, v_edt, dates, result['eu'], seq_filter=seq_filter)
 
         # 백신예정 (150004) - 항상 modon (농장기본값 옵션 없음)
+        # BF_PASS_YN='Y'인 작업은 PASS_DT가 기간 이전이어도 포함되므로 add_early_to_first=True
         seq_filter = ins_conf['vaccine']['seq_filter']
-        self._count_schedule('150004', None, v_sdt, v_edt, dates, result['vaccine'], seq_filter=seq_filter)
+        self._count_schedule('150004', None, v_sdt, v_edt, dates, result['vaccine'], seq_filter=seq_filter, add_early_to_first=True)
 
         return result
 
