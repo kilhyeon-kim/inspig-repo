@@ -266,19 +266,21 @@ class ScheduleProcessor(BaseProcessor):
                                  seq_filter=seq_filter, add_early_to_first=True)
 
         # 분만예정 (150002)
+        # BF_PASS_YN='Y'인 작업은 PASS_DT가 기간 이전이어도 포함되므로 add_early_to_first=True
         if ins_conf['farrowing']['method'] == 'farm':
-            self._count_schedule_by_farm('farrowing', dates, result['bm'], config, farm_config)
+            self._count_schedule_by_farm('farrowing', dates, result['bm'], config, farm_config, add_early_to_first=True)
         else:
             seq_filter = ins_conf['farrowing']['seq_filter']
-            self._count_schedule('150002', None, v_sdt, v_edt, dates, result['bm'], seq_filter=seq_filter)
+            self._count_schedule('150002', None, v_sdt, v_edt, dates, result['bm'], seq_filter=seq_filter, add_early_to_first=True)
 
         # 이유예정 (150003) - 포유돈 + 대리모돈
+        # BF_PASS_YN='Y'인 작업은 PASS_DT가 기간 이전이어도 포함되므로 add_early_to_first=True
         if ins_conf['weaning']['method'] == 'farm':
-            self._count_schedule_by_farm('weaning', dates, result['eu'], config, farm_config)
+            self._count_schedule_by_farm('weaning', dates, result['eu'], config, farm_config, add_early_to_first=True)
         else:
             seq_filter = ins_conf['weaning']['seq_filter']
-            self._count_schedule('150003', '010003', v_sdt, v_edt, dates, result['eu'], seq_filter=seq_filter)
-            self._count_schedule('150003', '010004', v_sdt, v_edt, dates, result['eu'], seq_filter=seq_filter)
+            self._count_schedule('150003', '010003', v_sdt, v_edt, dates, result['eu'], seq_filter=seq_filter, add_early_to_first=True)
+            self._count_schedule('150003', '010004', v_sdt, v_edt, dates, result['eu'], seq_filter=seq_filter, add_early_to_first=True)
 
         # 백신예정 (150004) - 항상 modon (농장기본값 옵션 없음)
         # BF_PASS_YN='Y'인 작업은 PASS_DT가 기간 이전이어도 포함되므로 add_early_to_first=True
