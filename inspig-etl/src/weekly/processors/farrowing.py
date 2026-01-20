@@ -106,7 +106,7 @@ class FarrowingProcessor(BaseProcessor):
 
         try:
             parsed = json.loads(result[0])
-            method = parsed.get('method', 'modon')
+            method = parsed.get('method', 'farm')
             tasks = parsed.get('tasks') if 'tasks' in parsed else None
 
             if method == 'modon':

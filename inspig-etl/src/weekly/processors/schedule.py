@@ -147,11 +147,11 @@ class ScheduleProcessor(BaseProcessor):
                 'vaccine': {...}
             }
         """
-        # 기본값: 교배/분만/이유/백신은 modon(전체), 임신감정은 farm
+        # 기본값: 교배/이유/백신은 modon(전체), 분만/임신감정은 farm
         # seq_filter: ''=작업없음(0개), '1,2,3'=선택된 작업
         default_conf = {
             'mating': {'method': 'modon', 'tasks': None, 'seq_filter': ''},
-            'farrowing': {'method': 'modon', 'tasks': None, 'seq_filter': ''},
+            'farrowing': {'method': 'farm', 'tasks': None, 'seq_filter': ''},
             'pregnancy': {'method': 'farm', 'tasks': None, 'seq_filter': ''},
             'weaning': {'method': 'modon', 'tasks': None, 'seq_filter': ''},
             'vaccine': {'method': 'modon', 'tasks': None, 'seq_filter': ''},
@@ -182,7 +182,9 @@ class ScheduleProcessor(BaseProcessor):
             if json_str:
                 try:
                     parsed = json.loads(json_str)
-                    method = parsed.get('method', 'modon')
+                    # 기본값: 분만/임신감정은 farm, 나머지는 modon
+                    default_method = 'farm' if key in ('farrowing', 'pregnancy') else 'modon'
+                    method = parsed.get('method', default_method)
                     # tasks 키 존재 여부 확인: 키가 없으면 None, 있으면 값 (빈 배열 포함)
                     tasks = parsed.get('tasks') if 'tasks' in parsed else None
 

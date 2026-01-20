@@ -61,10 +61,10 @@ export default function WeeklyScheduleSettings({
     const [farmConfigData, setFarmConfigData] = useState<FarmConfigResponse | null>(null);
 
     // 각 작업 구분별 산정 방식 (farm/modon)
-    // 기본값: 교배/분만/이유/백신은 modon, 임신감정만 farm
+    // 기본값: 교배/이유/백신은 modon, 분만/임신감정은 farm
     const [scheduleCalcMethods, setScheduleCalcMethods] = useState<Record<ScheduleItemKey, ScheduleCalcMethod>>({
         mating: 'modon',
-        farrowing: 'modon',
+        farrowing: 'farm',
         pregnancyCheck: 'farm',
         weaning: 'modon',
         vaccine: 'modon',
@@ -113,10 +113,10 @@ export default function WeeklyScheduleSettings({
                 return jobs.map((j: PlanModonItem) => j.seq);
             };
 
-            // 1. 산정 방식 초기화 (기본값: 교배/분만/이유/백신은 modon, 임신감정은 farm)
+            // 1. 산정 방식 초기화 (기본값: 교배/이유/백신은 modon, 분만/임신감정은 farm)
             const newMethods: Record<ScheduleItemKey, ScheduleCalcMethod> = {
                 mating: (insConf.mating?.method as ScheduleCalcMethod) || 'modon',
-                farrowing: (insConf.farrowing?.method as ScheduleCalcMethod) || 'modon',
+                farrowing: (insConf.farrowing?.method as ScheduleCalcMethod) || 'farm',
                 pregnancyCheck: (insConf.pregnancy?.method as ScheduleCalcMethod) || 'farm',
                 weaning: (insConf.weaning?.method as ScheduleCalcMethod) || 'modon',
                 vaccine: 'modon',
@@ -315,7 +315,7 @@ export default function WeeklyScheduleSettings({
                                                     ? 'text-blue-600 dark:text-blue-400 font-medium'
                                                     : 'text-gray-500 dark:text-gray-400'
                                             }`}>
-                                                농장 기본값
+                                                {item.key === 'farrowing' ? '농장 기본값(분만예정돈 대장)' : '농장 기본값'}
                                             </span>
                                         </label>
                                         <label
