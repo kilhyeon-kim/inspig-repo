@@ -4,19 +4,49 @@ import { TsInsWeek } from './ts-ins-week.entity';
 /**
  * TS_INS_WEEK_SUB: 리포트 상세 테이블 (팝업 데이터)
  *
- * GUBUN 코드별 데이터 용도:
- * - ALERT_MD: 관리대상 모돈 상세 (모돈번호, 상태, 일수 등)
- * - PARITY_DIST: 산차별 모돈분포
- * - MATING_RETURN: 재귀일별 교배복수
- * - PARITY_RETURN: 산차별 재귀일
- * - ACCIDENT_PERIOD: 임신일별 사고복수
- * - PARITY_ACCIDENT: 산차별 사고원인
- * - PARITY_BIRTH: 산차별 분만성적
- * - PARITY_WEAN: 산차별 이유성적
- * - CULLING_DIST: 도폐사원인분포
- * - SHIPMENT: 출하자료분석
- * - CARCASS: 도체중/등지방분포
- * - SCHEDULE_*: 예정 작업 (GB, IMSIN, BM, EU, VACCINE, SHIP)
+ * GUBUN/SUB_GUBUN별 데이터 용도:
+ *
+ * CONFIG (1행/농장)
+ *   - SUB_GUBUN='-': 농장 설정값 (VAL_1~VAL_15)
+ *
+ * ALERT (4행/농장) - 지연기간별 집계 (개별 모돈 데이터 없음)
+ *   - SUB_GUBUN='-', SORT_NO 1~4: 지연기간별 관리대상 집계 (~3일/4~7일/8~14일/14일~)
+ *     CNT_1~CNT_5: HUBO/EU_MI/SG_MI/BM_DELAY/EU_DELAY
+ *
+ * GB (2행/농장) - 교배
+ *   - SUB_GUBUN='STAT': 교배 요약 통계
+ *   - SUB_GUBUN='CHART': 재귀일별 교배복수 차트
+ *
+ * BM (1행/농장) - 분만
+ *   - SUB_GUBUN='-': 분만 요약 통계
+ *
+ * EU (1행/농장) - 이유
+ *   - SUB_GUBUN='-': 이유 요약 통계
+ *
+ * SG (3행/농장) - 임신사고
+ *   - SUB_GUBUN='STAT', SORT_NO 1: 사고현황 요약
+ *   - SUB_GUBUN='STAT', SORT_NO 2: 산차별 사고원인
+ *   - SUB_GUBUN='CHART': 임신일별 사고복수 차트
+ *
+ * DOPE (4+N행/농장) - 도태/폐사
+ *   - SUB_GUBUN='STAT', SORT_NO 1: 상태별 집계 (도태/폐사/전출/판매)
+ *   - SUB_GUBUN='STAT', SORT_NO 2: 도태원인별 집계
+ *   - SUB_GUBUN='LIST': 개별 도폐사 기록 (N행)
+ *   - SUB_GUBUN='CHART': 상태분포 차트
+ *
+ * SHIP (17+N행/농장) - 출하
+ *   - SUB_GUBUN='STAT': 출하 통계 (2행)
+ *   - SUB_GUBUN='CARCASS': 개별 도체 성적 (N행)
+ *   - SUB_GUBUN='ROW': 출하분석 상세 (13행)
+ *   - SUB_GUBUN='SCATTER': 산점도 데이터 (1행, JSON_DATA CLOB)
+ *
+ * SCHEDULE (3+N행/농장) - 금주예정
+ *   - SUB_GUBUN='-': 예정 요약 카운트
+ *   - SUB_GUBUN='CAL': 캘린더 그리드 (요일별)
+ *   - SUB_GUBUN='GB/BM/EU/IMSIN': 예정 팝업 상세 (모돈작업설정 시)
+ *   - SUB_GUBUN='VACCINE': 백신예정 팝업
+ *   - SUB_GUBUN='METHOD': 산정방식 정보
+ *   - SUB_GUBUN='HELP': 도움말 정보
  */
 @Entity({ name: 'TS_INS_WEEK_SUB' })
 export class TsInsWeekSub {

@@ -138,28 +138,7 @@ DAY_GB: `WEEK`
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.4 대상 농가 추출 SQL
-
-```sql
--- orchestrator.py _get_target_farms()
-SELECT DISTINCT F.FARM_NO, F.FARM_NM, F.PRINCIPAL_NM, F.SIGUN_CD,
-       NVL(F.COUNTRY_CODE, 'KOR') AS LOCALE
-FROM TA_FARM F
-INNER JOIN TS_INS_SERVICE S ON F.FARM_NO = S.FARM_NO
-WHERE F.USE_YN = 'Y'
-  AND S.INSPIG_YN = 'Y'
-  AND S.USE_YN = 'Y'
-  AND S.INSPIG_FROM_DT IS NOT NULL          -- 시작일 필수
-  AND S.INSPIG_TO_DT IS NOT NULL            -- 종료일 필수
-  AND TO_CHAR(SYSDATE, 'YYYYMMDD') >= S.INSPIG_FROM_DT
-  AND TO_CHAR(SYSDATE, 'YYYYMMDD') <= LEAST(
-      S.INSPIG_TO_DT,
-      NVL(S.INSPIG_STOP_DT, '99991231')     -- 중지일 NULL이면 중지 안됨
-  )
-ORDER BY F.FARM_NO
-```
-
-### 2.5 서비스 기간 예시
+### 2.4 서비스 기간 예시
 
 ```
 시나리오 1: 정상 서비스 기간 내
@@ -272,31 +251,40 @@ WeeklyReportOrchestrator.run()
 | 9 | ShipmentProcessor | SHIP | 출하 현황 | SP_INS_WEEK_SHIP |
 | 10 | ScheduleProcessor | SCHEDULE | 금주 예정 작업 | SP_INS_WEEK_SCHEDULE |
 
-### 3.2 GUBUN/SUB_GUBUN 구조
+### 3.2 TS_INS_WEEK_SUB 데이터 생성 현황 (1농장 1주차 기준)
 
-| GUBUN | SUB_GUBUN | 설명 |
-|-------|-----------|------|
-| CONFIG | CONFIG | 농장 설정값 |
-| MANAGE | LIMIT_LIST | 관리대상 모돈 목록 |
-| MANAGE | ETC_LIST | 관리대상 기타 목록 |
-| MODON | MODON_STAT | 모돈현황 통계 |
-| MATING | GB_LIST | 교배 목록 |
-| MATING | GB_STAT | 교배 통계 |
-| BUN | BM_LIST | 분만 목록 |
-| BUN | BM_STAT | 분만 통계 |
-| EU | EU_LIST | 이유 목록 |
-| EU | EU_STAT | 이유 통계 |
-| SAGO | SAGO_LIST | 임신사고 목록 |
-| SAGO | SAGO_STAT | 임신사고 통계 |
-| DOPE | DOPE_LIST | 도태폐사 목록 |
-| DOPE | DOPE_STAT | 도태폐사 통계 |
-| SHIP | SHIP_LIST | 출하 목록 |
-| SHIP | SHIP_STAT | 출하 통계 |
-| SCHEDULE | GB | 분만예정 팝업 |
-| SCHEDULE | BM | 발정재귀 팝업 |
-| SCHEDULE | EU | 이유예정 팝업 |
-| SCHEDULE | VACCINE | 백신예정 팝업 |
-| SCHEDULE | HELP | 도움말 정보 |
+| 프로세서       | GUBUN    | SUB_GUBUN        | 건수     | 비고                             |
+|----------------|----------|------------------|----------|----------------------------------|
+| config.py      | CONFIG   | -                | 1        | 농장 설정                        |
+| alert.py       | ALERT    | -                | 4        | 관리대상 모돈 (지연기간별 집계)  |
+| modon.py       | MODON    | -                | 10       | 산차별 (후보돈~8산+)             |
+| mating.py      | GB       | STAT             | 1        | 교배 요약                        |
+|                | GB       | CHART            | 1        | 재귀일별 차트                    |
+|                | GB       | HINT             | 1        | 힌트                             |
+| farrowing.py   | BM       | -                | 1        | 분만 통계                        |
+|                | BM       | HINT             | 1        | 힌트                             |
+| weaning.py     | EU       | -                | 1        | 이유 통계                        |
+|                | EU       | HINT             | 1        | 힌트                             |
+| accident.py    | SG       | STAT             | 2        | 원인별 사고                      |
+|                | SG       | CHART            | 1        | 경과일별 차트                    |
+| culling.py     | DOPE     | STAT             | 2        | 유형별 통계                      |
+|                | DOPE     | LIST             | **가변** | 원인별 목록                      |
+|                | DOPE     | CHART            | 1        | 상태별 차트                      |
+| shipment.py    | SHIP     | ROW              | 13       | 출하 크로스탭                    |
+|                | SHIP     | STAT             | 1        | 출하 통계                        |
+|                | SHIP     | CHART            | 7        | 일별 차트                        |
+|                | SHIP     | SCATTER          | 1        | 산점도 (JSON_DATA CLOB)          |
+| schedule.py    | SCHEDULE | -                | 1        | 요약                             |
+|                | SCHEDULE | CAL              | 4~6      | 캘린더 그리드                    |
+|                | SCHEDULE | GB/BM/EU/VACCINE | **가변** | 팝업 상세 (TB_PLAN_MODON 기반)   |
+|                | SCHEDULE | IMSIN            | **가변** | 임신감정 상세                    |
+|                | SCHEDULE | HELP             | 1        | 도움말                           |
+|                | SCHEDULE | METHOD           | 1        | 산정방식                         |
+
+**참고사항:**
+- HINT 정보는 GB/BM/EU STAT ROW의 HINT1 컬럼에도 저장됨
+- SCATTER는 JSON_DATA CLOB 컬럼에 `[{"x":도체중,"y":등지방,"cnt":두수}, ...]` 형식으로 저장
+- SCHEDULE 팝업 상세는 산정방식이 modon(모돈작업설정)일 때만 생성
 
 
 ## 4. 기술 구현
@@ -369,16 +357,7 @@ Level 1: 농장별 병렬 (ThreadPoolExecutor)
 
 ### 5.1 WeaningProcessor (이유)
 
-#### DAERI_YN 분기 처리
-대리모돈 자돈 증감 계산 시 **ETL 수행일(SYSDATE)이 아닌 dt_to(지난주 일요일)** 기준 사용
-
-```sql
-AND JT.WK_DT <= CASE
-    WHEN NW.NEXT_WK_GUBUN = 'G' THEN NW.NEXT_WK_DT
-    WHEN NW.NEXT_WK_DT IS NULL AND A.DAERI_YN = 'N' THEN :dt_to  -- 여기!
-    ELSE TO_CHAR(TO_DATE(A.WK_DT, 'YYYYMMDD') - 1, 'YYYYMMDD')
-END
-```
+- **DAERI_YN 분기 처리**: 대리모돈 자돈 증감 계산 시 ETL 수행일(SYSDATE)이 아닌 dt_to(지난주 일요일) 기준 사용
 
 ### 5.2 ScheduleProcessor (금주 예정)
 
@@ -454,17 +433,13 @@ END
 
 웹에서 산정방식에 따른 화면 분기 처리를 위해 각 예정별 method 정보를 저장합니다.
 
-```sql
--- TS_INS_WEEK_SUB (GUBUN='SCHEDULE', SUB_GUBUN='METHOD')
-INSERT INTO TS_INS_WEEK_SUB (
-    MASTER_SEQ, FARM_NO, GUBUN, SUB_GUBUN, SORT_NO,
-    STR_1,      -- 교배예정 method (farm/modon)
-    STR_2,      -- 분만예정 method (farm/modon)
-    STR_3,      -- 임신감정 method (farm/modon)
-    STR_4,      -- 이유예정 method (farm/modon)
-    STR_5       -- 백신예정 method (farm/modon)
-) VALUES (:master_seq, :farm_no, 'SCHEDULE', 'METHOD', 1, ...);
-```
+| 컬럼 | 내용 |
+|------|------|
+| STR_1 | 교배예정 method (farm/modon) |
+| STR_2 | 분만예정 method (farm/modon) |
+| STR_3 | 임신감정 method (farm/modon) |
+| STR_4 | 이유예정 method (farm/modon) |
+| STR_5 | 백신예정 method (farm/modon) |
 
 #### 5.2.4 캘린더 데이터 분기 (SUB_GUBUN='CAL')
 
@@ -477,156 +452,43 @@ INSERT INTO TS_INS_WEEK_SUB (
 
 #### 5.2.5 팝업 상세 분기 (SUB_GUBUN='GB/BM/EU/IMSIN')
 
-**농장기본값**일 때는 TB_PLAN_MODON 기반이 아니므로 팝업 상세 데이터를 생성하지 않습니다.
+| 산정방식 | 팝업 상세 | 비고 |
+|----------|----------|------|
+| farm (농장기본값) | 생략 | 팝업 클릭 시 "농장기본값 기준" 메시지 표시 |
+| modon (모돈작업설정) | INSERT | 작업명별 그룹화 |
 
-```
-산정방식 = farm → 팝업 상세 생략 (팝업 클릭 시 "농장기본값 기준" 메시지 표시)
-산정방식 = modon → 팝업 상세 INSERT (작업명별 그룹화)
-```
+#### 5.2.6 HELP 정보 (SUB_GUBUN='HELP')
 
-#### 5.2.6 팝업 종류별 처리
-```python
-# GB, BM, EU는 공통 메서드
-popup_configs = [
-    ('GB', '150005'),   # 교배예정
-    ('BM', '150002'),   # 분만예정
-    ('EU', '150003'),   # 이유예정
-]
-
-for sub_gubun, job_gubun_cd in popup_configs:
-    # method='farm'이면 팝업 상세 생략
-    if conf['method'] == 'farm':
-        continue
-    self._insert_popup_by_job(sub_gubun, job_gubun_cd, ...)
-
-# 임신감정(IMSIN): 모돈작업설정일 때만 팝업 상세 INSERT
-if ins_conf['pregnancy']['method'] == 'modon':
-    self._insert_popup_by_job('IMSIN', '150001', ...)
-
-# VACCINE은 ARTICLE_NM(백신명) 포함으로 별도 처리
-self._insert_vaccine_popup(...)
-```
-
-#### 5.2.7 HELP 정보 표시 예시 (btn-schedule-help 클릭 시)
-
-HELP 데이터는 `SUB_GUBUN='HELP'`에 저장되며, 웹에서 도움말 버튼 클릭 시 표시됩니다.
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                         금주 작업예정 도움말                                      │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│  ※ 산정방식                                                                     │
-│  ┌─────────────────────────────────────────────────────────────────────────┐    │
-│  │ • 교배예정: 농장기본값                                                    │    │
-│  │ • 분만예정: 모돈작업(2개) - 분만대기(115일), 분만임박(113일)               │    │
-│  │ • 임신감정: 농장기본값 - 교배후 3주(21일), 4주(28일) 대상모돈              │    │
-│  │ • 이유예정: 모돈작업(1개) - 이유예정(25일)                                 │    │
-│  │ • 백신예정: 모돈작업(3개) - 백신A(7일), 백신B(14일), 백신C(21일)           │    │
-│  └─────────────────────────────────────────────────────────────────────────┘    │
-│                                                                                 │
-│  ※ 출하예정 계산                                                                │
-│  ┌─────────────────────────────────────────────────────────────────────────┐    │
-│  │ • 육성율: 92% (2024-01 ~ 2024-12 평균, 기본 90%)                         │    │
-│  │ • 공식: 155일전 이유두수 × 육성율                                         │    │
-│  │   - 기준출하일령(180일) - 평균포유기간(25일) = 155일                       │    │
-│  │ • 이유기간: 2024-07-22 ~ 2024-07-28                                      │    │
-│  └─────────────────────────────────────────────────────────────────────────┘    │
-│                                                                                 │
-└─────────────────────────────────────────────────────────────────────────────────┘
-```
-
-**HELP 데이터 저장 컬럼 (TS_INS_WEEK_SUB, SUB_GUBUN='HELP')**
+HELP 데이터는 웹에서 도움말 버튼 클릭 시 표시됩니다.
 
 | 컬럼 | 내용 | 예시 |
 |------|------|------|
-| STR_1 | 교배예정 작업 목록 | `'농장기본값'` 또는 `'분만대기(115일),분만임박(113일)'` |
-| STR_2 | 분만예정 작업 목록 | 동일 |
-| STR_3 | 이유예정 작업 목록 | 동일 |
-| STR_4 | 백신예정 작업 목록 | 동일 |
+| STR_1 | 교배예정 산출기준 | `'농장기본값'` 또는 `'분만대기(115일),분만임박(113일)'` |
+| STR_2 | 분만예정 산출기준 | 동일 |
+| STR_3 | 이유예정 산출기준 | 동일 |
+| STR_4 | 백신예정 산출기준 | 동일 |
 | STR_5 | 출하예정 계산 정보 | `'* 육성율: 92% ...'` |
-| STR_6 | 임신감정 도움말 | `'(농장기본값) 교배후 3주(21일), 4주(28일) 대상모돈'` |
-
-**산정방식별 표시 문구**
-
-| 산정방식 | 표시 문구 예시 |
-|----------|--------------|
-| 농장기본값 | `'농장기본값'` |
-| 모돈작업(선택없음) | `'(선택된 작업 없음)'` |
-| 모돈작업(선택있음) | `'작업명A(N일),작업명B(M일)'` |
+| STR_6 | 임신감정 산출기준 | `'(농장기본값) 교배후 3주(21일), 4주(28일) 대상모돈'` |
 
 ### 5.3 CullingProcessor (도태/폐사)
 
-#### 원인별 피벗 구조
-DOPE_GUBUN_CD별 CNT를 피벗하여 저장
-- 결과: CNT_1(050011), CNT_2(050012), ... CNT_10(050020)
+- **원인별 피벗 구조**: DOPE_GUBUN_CD별 CNT를 피벗하여 CNT_1(050011) ~ CNT_10(050020)에 저장
+
+### 5.4 Oracle Function 연동
+
+- **FN_MD_SCHEDULE_BSE_2020**: 모돈작업설정(method=modon) 시 예정 모돈 목록 조회에 사용
+- 참조: `schedule.py`
 
 
-## 6. Oracle Function 연동
+## 6. 에러 처리
 
-### FN_MD_SCHEDULE_BSE_2020 호출
-```python
-sql = """
-SELECT WK_NM, PIG_NO, MODON_STATUS_CD, PASS_DAY, PASS_DT
-FROM TABLE(FN_MD_SCHEDULE_BSE_2020(
-    :farm_no, 'JOB-DAJANG', '150004', NULL,
-    :v_sdt, :v_edt, NULL, 'ko', 'yyyy-MM-dd', '-1', NULL
-))
-"""
-result = self.fetch_dict(sql, {...})
-```
+- **농장별 에러 격리**: 특정 농장 처리 실패 시 해당 농장만 ERROR 상태로 기록
+- **에러 로그 테이블**: TS_INS_JOB_LOG에 에러 정보 저장
 
 
-## 7. 에러 처리
+## 7. API 응답 필드
 
-### 농장별 에러 격리
-```python
-class FarmProcessor:
-    def process(self, ...):
-        try:
-            # 처리 로직
-            self._update_status('COMPLETE')
-        except Exception as e:
-            # 해당 농장만 ERROR 상태로 기록
-            self._update_status('ERROR')
-            self._log_error(str(e))
-            return {'status': 'error', 'error': str(e)}
-```
-
-### 에러 로그 테이블 (TS_INS_JOB_LOG)
-```sql
-INSERT INTO TS_INS_JOB_LOG (
-    SEQ, MASTER_SEQ, FARM_NO, JOB_NM, PROC_NM,
-    STATUS_CD, ERROR_MSG, LOG_INS_DT
-) VALUES (
-    SEQ_TS_INS_JOB_LOG.NEXTVAL, :master_seq, :farm_no,
-    'PYTHON_ETL', 'FarmProcessor',
-    'ERROR', :error_msg, SYSDATE
-)
-```
-
-
-## 8. Oracle → Python 전환 매핑
-
-| Oracle Procedure | Python Class | 상태 |
-|------------------|--------------|------|
-| SP_INS_WEEK_MAIN | WeeklyReportOrchestrator | 완료 |
-| SP_INS_WEEK_FARM_PROCESS | FarmProcessor | 완료 |
-| SP_INS_WEEK_CONFIG | ConfigProcessor | 완료 |
-| SP_INS_WEEK_MANAGE_SOW | AlertProcessor | 완료 |
-| SP_INS_WEEK_MODON | ModonProcessor | 완료 |
-| SP_INS_WEEK_MATING | MatingProcessor | 완료 |
-| SP_INS_WEEK_BUN | FarrowingProcessor | 완료 |
-| SP_INS_WEEK_EU | WeaningProcessor | 완료 |
-| SP_INS_WEEK_SAGO | AccidentProcessor | 완료 |
-| SP_INS_WEEK_DOPE | CullingProcessor | 완료 |
-| SP_INS_WEEK_SHIP | ShipmentProcessor | 완료 |
-| SP_INS_WEEK_SCHEDULE | ScheduleProcessor | 완료 |
-
-
-## 9. API 응답 필드
-
-### 9.1 ETL 실행 응답 (POST /api/run-farm)
+### 7.1 ETL 실행 응답 (POST /api/run-farm)
 
 ```json
 {
@@ -643,7 +505,7 @@ INSERT INTO TS_INS_JOB_LOG (
 }
 ```
 
-### 9.2 masterSeq 필드 설명
+### 7.2 masterSeq 필드 설명
 
 | 필드 | 설명 |
 |------|------|
@@ -659,7 +521,7 @@ INSERT INTO TS_INS_JOB_LOG (
 - `selectInsWeeklyReportForManual(farmNo, reportYear, reportWeekNo, masterSeq)`
 - masterSeq가 없으면 "마스터 시퀀스가 필요합니다." 에러 발생
 
-### 9.3 pig3.1 연동 흐름
+### 7.3 pig3.1 연동 흐름
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
