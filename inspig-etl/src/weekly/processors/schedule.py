@@ -868,8 +868,14 @@ class ScheduleProcessor(BaseProcessor):
         for sub_gubun, job_gubun_cd, conf_key in popup_configs:
             conf = ins_conf[conf_key]
             # method='farm'이면 팝업 상세 INSERT 생략 (농장기본값은 TB_PLAN_MODON 기반이 아님)
+            # 단, 교배(GB)는 농장기본값이어도 팝업 상세 필요 (이유돈/후보돈/사고재발돈 3가지)
             if conf['method'] == 'farm':
-                self.logger.info(f"팝업 상세 생략 (농장기본값): {sub_gubun}")
+                if conf_key == 'mating':
+                    # 교배 농장기본값: 다장 방식 팝업 상세 INSERT
+                    self.logger.info(f"팝업 상세 INSERT (농장기본값-다장방식): {sub_gubun}")
+                    self._insert_mating_farm_popup(v_sdt, v_edt, dt_from)
+                else:
+                    self.logger.info(f"팝업 상세 생략 (농장기본값): {sub_gubun}")
                 continue
             seq_filter = conf['seq_filter']
             # seq_filter=''이면 선택된 작업이 없으므로 팝업 상세 생략
@@ -962,6 +968,52 @@ class ScheduleProcessor(BaseProcessor):
             'v_edt': v_edt,
             'dt_from': dt_from,
             'seq_filter': seq_filter,
+        })
+
+    def _insert_mating_farm_popup(self, v_sdt: str, v_edt: str, dt_from: datetime) -> None:
+        """교배예정 팝업 상세 INSERT - 농장기본값 (SUB_GUBUN='GB')
+
+        농장기본값(다장 방식)일 때 교배예정 팝업 상세 데이터 생성
+        - 이유돈: 평균재귀일 기준
+        - 후보돈: 초교배일령 기준
+        - 사고/재발돈: 즉시
+
+        FN_MD_SCHEDULE_BSE_2020 함수를 seq_filter=NULL로 호출하면 다장 방식으로 계산
+        """
+        sql = """
+        INSERT INTO TS_INS_WEEK_SUB (
+            MASTER_SEQ, FARM_NO, GUBUN, SUB_GUBUN, SORT_NO,
+            STR_1, STR_2, STR_3, STR_4, CNT_1,
+            CNT_2, CNT_3, CNT_4, CNT_5, CNT_6, CNT_7, CNT_8
+        )
+        SELECT :master_seq, :farm_no, 'SCHEDULE', 'GB', ROWNUM,
+               WK_NM, STD_CD, MODON_STATUS_CD, PASS_DAY, NVL(CNT, 0),
+               NVL(D1, 0), NVL(D2, 0), NVL(D3, 0), NVL(D4, 0), NVL(D5, 0), NVL(D6, 0), NVL(D7, 0)
+        FROM (
+            SELECT WK_NM, STD_CD, MODON_STATUS_CD, PASS_DAY,
+                   COUNT(*) CNT,
+                   SUM(CASE WHEN TRUNC(TO_DATE(PASS_DT, 'YYYY-MM-DD')) < :dt_from THEN 1
+                            WHEN TRUNC(TO_DATE(PASS_DT, 'YYYY-MM-DD')) = :dt_from THEN 1 ELSE 0 END) AS D1,
+                   SUM(CASE WHEN TRUNC(TO_DATE(PASS_DT, 'YYYY-MM-DD')) = :dt_from + 1 THEN 1 ELSE 0 END) AS D2,
+                   SUM(CASE WHEN TRUNC(TO_DATE(PASS_DT, 'YYYY-MM-DD')) = :dt_from + 2 THEN 1 ELSE 0 END) AS D3,
+                   SUM(CASE WHEN TRUNC(TO_DATE(PASS_DT, 'YYYY-MM-DD')) = :dt_from + 3 THEN 1 ELSE 0 END) AS D4,
+                   SUM(CASE WHEN TRUNC(TO_DATE(PASS_DT, 'YYYY-MM-DD')) = :dt_from + 4 THEN 1 ELSE 0 END) AS D5,
+                   SUM(CASE WHEN TRUNC(TO_DATE(PASS_DT, 'YYYY-MM-DD')) = :dt_from + 5 THEN 1 ELSE 0 END) AS D6,
+                   SUM(CASE WHEN TRUNC(TO_DATE(PASS_DT, 'YYYY-MM-DD')) = :dt_from + 6 THEN 1 ELSE 0 END) AS D7
+            FROM TABLE(FN_MD_SCHEDULE_BSE_2020(
+                :farm_no, 'JOB-DAJANG', '150005', NULL,
+                :v_sdt, :v_edt, NULL, 'ko', 'yyyy-MM-dd', NULL, NULL
+            ))
+            GROUP BY WK_NM, STD_CD, MODON_STATUS_CD, PASS_DAY
+            ORDER BY WK_NM
+        )
+        """
+        self.execute(sql, {
+            'master_seq': self.master_seq,
+            'farm_no': self.farm_no,
+            'v_sdt': v_sdt,
+            'v_edt': v_edt,
+            'dt_from': dt_from,
         })
 
     def _insert_vaccine_popup(self, v_sdt: str, v_edt: str, dt_from: datetime,
