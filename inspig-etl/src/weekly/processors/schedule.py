@@ -1081,6 +1081,11 @@ class ScheduleProcessor(BaseProcessor):
             seq_filter = ins_conf[conf_key]['seq_filter']
             if seq_filter == '':
                 return "'(모돈 작업설정)' || CHR(10) || '· 선택된 작업 없음'"
+            elif seq_filter == '-1':
+                # 전체 선택: SEQ 조건 없이 조회
+                return f"""'(모돈 작업설정)' || CHR(10) ||
+                           (SELECT LISTAGG('· ' || WK_NM || '(' || PASS_DAY || '일)', CHR(10)) WITHIN GROUP (ORDER BY WK_NM)
+                           FROM TB_PLAN_MODON WHERE FARM_NO = :farm_no AND JOB_GUBUN_CD = '{job_gubun_cd}' AND USE_YN = 'Y')"""
             else:
                 return f"""'(모돈 작업설정)' || CHR(10) ||
                            (SELECT LISTAGG('· ' || WK_NM || '(' || PASS_DAY || '일)', CHR(10)) WITHIN GROUP (ORDER BY WK_NM)
