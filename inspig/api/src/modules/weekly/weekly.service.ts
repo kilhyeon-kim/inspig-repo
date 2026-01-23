@@ -997,7 +997,8 @@ export class WeeklyService {
       pregnancy: helpSub.str6 || '',     // 임신감정 산출기준 (모돈작업설정용)
       // 각 작업별 산정방식 (true: 농장기본값 = 팝업 없음, false: 모돈작업설정 = 팝업 있음)
       // METHOD row에서 직접 method 값 확인 (farm이면 팝업 없음)
-      isFarmMating: methodSub?.str1 === 'farm',
+      // 교배는 farm 모드여도 팝업 활성화 (이유돈/후보돈/사고재발돈 3가지 기준 표시)
+      isFarmMating: false,  // 항상 팝업 활성화
       isFarmFarrowing: methodSub?.str2 === 'farm',
       isFarmWeaning: methodSub?.str4 === 'farm',  // METHOD row: STR_4=이유
       isFarmVaccine: methodSub?.str5 === 'farm',  // METHOD row: STR_5=백신
