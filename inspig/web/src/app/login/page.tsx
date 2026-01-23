@@ -19,11 +19,9 @@ const TEST_ACCOUNTS = [
  { label: '-- 테스트 계정 선택 --', id: '', pw: '' },
  { label: '이지팜농장', id: 'test001', pw: '12341234' },  // 1387
  { label: 'jjin', id: 'jjin', pw: '1122' },  // 1387
- { label: '용암축산', id: 'csc2005', pw: 'rose2088' },  // 2807
+ { label: '한솔축산', id: 'dcd192', pw: 'ddr1495' },  // 2560
  { label: '서해농장', id: 'west001', pw: 'tjgoshdwkd1' }, // 848
- { label: '승현농장', id: 'ctw0309', pw: 'ctw0309' }, // 4223
- { label: '세원농장', id: 'xogus9', pw: '0000' }, // 1013
- { label: '거니양돈', id: 'kwon', pw: '1032' }, // 2319
+ { label: '한탄강스마트팜', id: 'bethel2007sm', pw: 'chy67110' }, // 4221
  { label: '민근농장/장일농장', id: 'centauru1', pw: 'kwak88176' }, //  4448
 ];
 
