@@ -30,11 +30,11 @@ const TABS: {
     isOpen: boolean;
     openDate?: string;
 }[] = [
-    { key: 'service', label: '알림 스케줄', icon: faBell, isOpen: true },
-    { key: 'weekly', label: '주간보고서', icon: faCalendarWeek, isOpen: true },
-    { key: 'monthly', label: '월간보고서', icon: faCalendarAlt, isOpen: false, openDate: '2026-02-01' },
-    { key: 'quarterly', label: '분기보고서', icon: faCalendarCheck, isOpen: false, openDate: '2026-04-01' },
-];
+        { key: 'service', label: '알림 스케줄', icon: faBell, isOpen: true },
+        { key: 'weekly', label: '주간보고서', icon: faCalendarWeek, isOpen: true },
+        { key: 'monthly', label: '월간보고서', icon: faCalendarAlt, isOpen: false, openDate: '2026-02-01' },
+        { key: 'quarterly', label: '분기보고서', icon: faCalendarCheck, isOpen: false, openDate: '2026-04-01' },
+    ];
 
 // 스케줄 그룹별 시간 정보
 const SCHEDULE_GROUPS = {
@@ -205,25 +205,22 @@ function SettingsContent() {
                 return (
                     <div
                         key={key}
-                        className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border ${
-                            service.isOpen
-                                ? 'border-gray-200 dark:border-gray-700'
-                                : 'border-gray-100 dark:border-gray-800 opacity-75'
-                        }`}
+                        className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border ${service.isOpen
+                            ? 'border-gray-200 dark:border-gray-700'
+                            : 'border-gray-100 dark:border-gray-800 opacity-75'
+                            }`}
                     >
                         {/* 카드 헤더 */}
-                        <div className={`px-5 py-4 border-b ${
-                            service.isOpen
-                                ? 'border-gray-100 dark:border-gray-700'
-                                : 'border-gray-50 dark:border-gray-800'
-                        }`}>
+                        <div className={`px-5 py-4 border-b ${service.isOpen
+                            ? 'border-gray-100 dark:border-gray-700'
+                            : 'border-gray-50 dark:border-gray-800'
+                            }`}>
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                                        service.isOpen
-                                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                                            : 'bg-gray-100 dark:bg-gray-700 text-gray-400'
-                                    }`}>
+                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${service.isOpen
+                                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-400'
+                                        }`}>
                                         <FontAwesomeIcon
                                             icon={service.isOpen ? service.icon : faLock}
                                             className="text-lg"
@@ -288,11 +285,10 @@ function SettingsContent() {
                                                 {(Object.entries(SCHEDULE_GROUPS) as [ScheduleGroupKey, typeof SCHEDULE_GROUPS[ScheduleGroupKey]][]).map(([groupKey, group]) => (
                                                     <label
                                                         key={groupKey}
-                                                        className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                                                            currentGroupKey === groupKey
-                                                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                                                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                                                        }`}
+                                                        className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${currentGroupKey === groupKey
+                                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                                                            }`}
                                                     >
                                                         <input
                                                             type="radio"
@@ -302,21 +298,19 @@ function SettingsContent() {
                                                             onChange={() => setSelectedGroups(prev => ({ ...prev, [serviceKey]: groupKey }))}
                                                             className="sr-only"
                                                         />
-                                                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                                                            currentGroupKey === groupKey
-                                                                ? 'border-blue-500 bg-blue-500'
-                                                                : 'border-gray-300 dark:border-gray-500'
-                                                        }`}>
+                                                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${currentGroupKey === groupKey
+                                                            ? 'border-blue-500 bg-blue-500'
+                                                            : 'border-gray-300 dark:border-gray-500'
+                                                            }`}>
                                                             {currentGroupKey === groupKey && (
                                                                 <FontAwesomeIcon icon={faCheck} className="text-white text-[8px]" />
                                                             )}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <p className={`text-sm font-medium ${
-                                                                currentGroupKey === groupKey
-                                                                    ? 'text-blue-700 dark:text-blue-300'
-                                                                    : 'text-gray-900 dark:text-white'
-                                                            }`}>
+                                                            <p className={`text-sm font-medium ${currentGroupKey === groupKey
+                                                                ? 'text-blue-700 dark:text-blue-300'
+                                                                : 'text-gray-900 dark:text-white'
+                                                                }`}>
                                                                 {group.label}
                                                             </p>
                                                             <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -333,11 +327,10 @@ function SettingsContent() {
                                                     id={`ibs01-btn-save-schedule-${serviceKey}`}
                                                     onClick={() => handleSaveScheduleGroup(serviceKey)}
                                                     disabled={!hasChanges(serviceKey) || isCurrentSaving}
-                                                    className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all ${
-                                                        hasChanges(serviceKey) && !isCurrentSaving
-                                                            ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                                            : 'bg-gray-200 text-gray-400 dark:bg-gray-600 dark:text-gray-500 cursor-not-allowed'
-                                                    }`}
+                                                    className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all ${hasChanges(serviceKey) && !isCurrentSaving
+                                                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                                        : 'bg-gray-200 text-gray-400 dark:bg-gray-600 dark:text-gray-500 cursor-not-allowed'
+                                                        }`}
                                                 >
                                                     {isCurrentSaving ? (
                                                         <>
@@ -347,11 +340,10 @@ function SettingsContent() {
                                                     ) : '저장'}
                                                 </button>
                                                 {currentSaveMessage && (
-                                                    <span className={`text-xs ${
-                                                        currentSaveMessage.type === 'success'
-                                                            ? 'text-green-600 dark:text-green-400'
-                                                            : 'text-red-600 dark:text-red-400'
-                                                    }`}>
+                                                    <span className={`text-xs ${currentSaveMessage.type === 'success'
+                                                        ? 'text-green-600 dark:text-green-400'
+                                                        : 'text-red-600 dark:text-red-400'
+                                                        }`}>
                                                         {currentSaveMessage.text}
                                                     </span>
                                                 )}
@@ -370,22 +362,20 @@ function SettingsContent() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {/* 데이터 생성 시간 */}
                                 <div className="flex items-start gap-3">
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                                        service.isOpen
-                                            ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
-                                            : 'bg-gray-50 dark:bg-gray-700/50 text-gray-400'
-                                    }`}>
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${service.isOpen
+                                        ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+                                        : 'bg-gray-50 dark:bg-gray-700/50 text-gray-400'
+                                        }`}>
                                         <FontAwesomeIcon icon={faClock} className="text-sm" />
                                     </div>
                                     <div>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">
                                             데이터 생성
                                         </p>
-                                        <p className={`text-sm font-medium ${
-                                            service.isOpen
-                                                ? 'text-gray-900 dark:text-white'
-                                                : 'text-gray-400 dark:text-gray-500'
-                                        }`}>
+                                        <p className={`text-sm font-medium ${service.isOpen
+                                            ? 'text-gray-900 dark:text-white'
+                                            : 'text-gray-400 dark:text-gray-500'
+                                            }`}>
                                             {service.isOpen && canEdit
                                                 ? `${service.scheduleLabel} ${currentGroupInfo.etl}`
                                                 : `${service.scheduleLabel} ${SCHEDULE_GROUPS.AM7.etl} / ${SCHEDULE_GROUPS.PM2.etl}${!service.isOpen ? ' (예정)' : ''}`
@@ -396,22 +386,20 @@ function SettingsContent() {
 
                                 {/* 알림 발송 시간 */}
                                 <div className="flex items-start gap-3">
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                                        service.isOpen
-                                            ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
-                                            : 'bg-gray-50 dark:bg-gray-700/50 text-gray-400'
-                                    }`}>
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${service.isOpen
+                                        ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
+                                        : 'bg-gray-50 dark:bg-gray-700/50 text-gray-400'
+                                        }`}>
                                         <FontAwesomeIcon icon={faBell} className="text-sm" />
                                     </div>
                                     <div>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">
                                             알림톡 발송
                                         </p>
-                                        <p className={`text-sm font-medium ${
-                                            service.isOpen
-                                                ? 'text-gray-900 dark:text-white'
-                                                : 'text-gray-400 dark:text-gray-500'
-                                        }`}>
+                                        <p className={`text-sm font-medium ${service.isOpen
+                                            ? 'text-gray-900 dark:text-white'
+                                            : 'text-gray-400 dark:text-gray-500'
+                                            }`}>
                                             {service.isOpen && canEdit
                                                 ? `${service.scheduleLabel} ${currentGroupInfo.notification}`
                                                 : `${service.scheduleLabel} ${SCHEDULE_GROUPS.AM7.notification} / ${SCHEDULE_GROUPS.PM2.notification}${!service.isOpen ? ' (예정)' : ''}`
@@ -461,14 +449,19 @@ function SettingsContent() {
                         금주 작업예정 산정 방식
                     </h2>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 space-y-0.5">
-                        <span className="block">• 각 작업별 예정일 산정 기준을 선택합니다.</span>
                         <span className="block">• 모돈 작업설정 선택 시 최소 1개 이상 선택해야 합니다.</span>
                         <span className="block">• 변경된 설정은 차주 보고서부터 적용됩니다.</span>
                     </p>
-                    <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded text-xs text-gray-600 dark:text-gray-400">
-                        <p className="mb-1"><span className="font-medium text-blue-600 dark:text-blue-400">농장 기본값</span>: 기준 작업일 + 경과일 (예: 교배일+115일)</p>
-                        <p><span className="font-medium text-green-600 dark:text-green-400">모돈 작업설정</span>: 마지막 작업일 + 경과일</p>
-                        <p className="text-gray-400 ml-16">※ 이후 작업 시 결과가 다를 수 있음</p>
+                    <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded text-xs text-gray-600 dark:text-gray-400 space-y-1.5">
+                        <div>
+                            <p><span className="font-medium text-blue-600 dark:text-blue-400">농장 기본값</span>: 기준 작업일 + 경과일 (예: 교배일+115일)</p>
+                            <p className="text-gray-400">※ 생성일 이후 PIGPLAN 작업시 영향없음</p>
+                        </div>
+                        <div>
+                            <p><span className="font-medium text-green-600 dark:text-green-400">모돈 작업설정</span>: 마지막 작업일 + 경과일</p>
+                            <p className="text-gray-400">(번식돈관리 &gt; 모돈 작업/예정보고서 &gt; 작업예정돈)</p>
+                            <p className="text-gray-400">※ 생성 후 PIGPLAN 작업시 보고서와 상이할 수 있음</p>
+                        </div>
                     </div>
                 </div>
                 {farmNo ? (

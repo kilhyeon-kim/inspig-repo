@@ -147,14 +147,17 @@ class ScheduleProcessor(BaseProcessor):
                 'vaccine': {...}
             }
         """
-        # 기본값: 교배/이유/백신은 modon(전체), 분만/임신감정은 farm
-        # seq_filter: ''=작업없음(0개), '1,2,3'=선택된 작업
+        # 기본값: TS_INS_CONF 설정이 없을 때 pig3.1 화면 기본값과 동일하게 처리
+        # pig3.1 InsWeeklyConfigPopup.jsp _cf.scheduleCalcMethods 기준:
+        # - 교배/이유/백신: modon + TB_PLAN_MODON 전체 선택 (seq_filter='-1')
+        # - 분만/임신감정: farm (농장 기본값)
+        # seq_filter: '-1'=modon 전체 또는 farm 모드
         default_conf = {
-            'mating': {'method': 'modon', 'tasks': None, 'seq_filter': ''},
-            'farrowing': {'method': 'farm', 'tasks': None, 'seq_filter': ''},
-            'pregnancy': {'method': 'farm', 'tasks': None, 'seq_filter': ''},
-            'weaning': {'method': 'modon', 'tasks': None, 'seq_filter': ''},
-            'vaccine': {'method': 'modon', 'tasks': None, 'seq_filter': ''},
+            'mating': {'method': 'modon', 'tasks': None, 'seq_filter': '-1'},
+            'farrowing': {'method': 'farm', 'tasks': None, 'seq_filter': '-1'},
+            'pregnancy': {'method': 'farm', 'tasks': None, 'seq_filter': '-1'},
+            'weaning': {'method': 'modon', 'tasks': None, 'seq_filter': '-1'},
+            'vaccine': {'method': 'modon', 'tasks': None, 'seq_filter': '-1'},
         }
 
         sql = """

@@ -315,7 +315,12 @@ export default function WeeklyScheduleSettings({
                                                     ? 'text-blue-600 dark:text-blue-400 font-medium'
                                                     : 'text-gray-500 dark:text-gray-400'
                                             }`}>
-                                                {item.key === 'farrowing' ? '농장 기본값(분만예정돈 대장)' : '농장 기본값'}
+                                                {item.key === 'farrowing' ? (
+                                                    <>
+                                                        농장 기본값
+                                                        <span className="block lg:inline text-[10px] lg:text-xs text-gray-400">(분만예정돈 대장)</span>
+                                                    </>
+                                                ) : '농장 기본값'}
                                             </span>
                                         </label>
                                         <label

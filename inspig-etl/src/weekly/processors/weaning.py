@@ -89,11 +89,11 @@ class WeaningProcessor(BaseProcessor):
         """TS_INS_CONF에서 이유예정 산정방식 설정 조회
 
         Returns:
-            {'method': 'farm'|'modon'|None, 'tasks': [], 'seq_filter': ''}
-            method=None이면 설정 없음 (예정 복수 산출 안 함)
+            {'method': 'farm'|'modon', 'tasks': [], 'seq_filter': ''}
+            TS_INS_CONF 설정이 없으면 modon 전체 방식으로 처리 (pig3.1 화면 기준)
         """
-        # 기본값: 설정 없음 (예정 복수 산출 안 함)
-        default_conf = {'method': None, 'tasks': None, 'seq_filter': ''}
+        # 기본값: pig3.1 InsWeeklyConfigPopup.jsp 화면 기본값과 동일 (modon)
+        default_conf = {'method': 'modon', 'tasks': None, 'seq_filter': '-1'}
 
         sql = """
         SELECT WEEK_TW_EU
@@ -103,7 +103,7 @@ class WeaningProcessor(BaseProcessor):
         result = self.fetch_one(sql, {'farm_no': self.farm_no})
 
         if not result or not result[0]:
-            self.logger.info(f"TS_INS_CONF 이유 설정 없음, 예정 복수 산출 안 함: farm_no={self.farm_no}")
+            self.logger.info(f"TS_INS_CONF 이유 설정 없음, modon 전체 사용: farm_no={self.farm_no}")
             return default_conf
 
         try:
@@ -247,10 +247,7 @@ class WeaningProcessor(BaseProcessor):
         Returns:
             (이유 예정 복수, None) 튜플 - 힌트는 _insert_hint()에서 생성
         """
-        if ins_conf['method'] is None:
-            self.logger.info("이유 예정 설정 없음, 예정 복수 산출 안 함")
-            return 0, None
-        elif ins_conf['method'] == 'farm':
+        if ins_conf['method'] == 'farm':
             return self._count_plan_by_farm(dt_from, dt_to), None
         else:
             return self._count_plan_by_modon(sdt, edt, ins_conf['seq_filter']), None
@@ -580,9 +577,6 @@ class WeaningProcessor(BaseProcessor):
         if prev_hint is not None:
             hint = prev_hint
             self.logger.info(f"이전 주차 힌트 사용")
-        elif ins_conf['method'] is None:
-            # 설정 없으면 힌트 저장 안 함
-            return
         elif ins_conf['method'] == 'farm':
             # 농장 기본값: TC_FARM_CONFIG 설정값 포함
             farm_config = self._get_farm_config()
