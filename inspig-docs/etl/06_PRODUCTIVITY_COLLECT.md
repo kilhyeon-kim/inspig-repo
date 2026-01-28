@@ -13,6 +13,218 @@
 | UK | FARM_NO + PCODE + STAT_YEAR + PERIOD + PERIOD_NO |
 | 수집기 | `src/collectors/productivity.py` |
 
+### 1.1 수집 시기
+
+> **참고**: 운영 서버는 UTC 시간대입니다. KST = UTC + 9시간
+
+| 명령 | Cron (UTC) | KST 실행 | 대상 농장 | 설명 |
+|------|------------|----------|----------|------|
+| `productivity-all W` | `5 15 * * 0` | 월 00:05 | 전체 농장 | 승인회원 있는 모든 농장 |
+| `productivity-all M` | `5 15 28-31 * *` | 1일 00:05 | 전체 농장 | 월간 생산성 데이터 |
+| `productivity` | - | 수동 | 서비스 농장 | InsightPig 서비스 농장만 |
+| `weekly` | `0 17 * * 0` | 월 02:00 | 서비스 농장 | 주간 리포트 ETL 시 함께 수집 |
+
+### 1.2 수집 대상
+
+#### 1.2.1 productivity-all (전체 농장)
+
+`productivity-all` 명령은 **승인된 회원이 있는 모든 농장**을 대상으로 합니다.
+
+**조회 함수**: `get_all_farm_nos()` ([farm_service.py](../../inspig-etl/src/common/farm_service.py))
+
+```sql
+-- ALL_FARM_NO_SQL: 전체 농장번호 조회
+SELECT DISTINCT FM.FARM_NO,
+       CASE WHEN S.FARM_NO IS NOT NULL THEN 0 ELSE 1 END AS SORT_ORDER
+FROM TA_FARM FM
+LEFT JOIN VW_INS_SERVICE_ACTIVE S ON FM.FARM_NO = S.FARM_NO
+WHERE FM.USE_YN = 'Y'              -- 사용중인 농장
+  AND FM.TEST_YN = 'N'             -- 테스트 농장 제외
+  AND EXISTS (
+      SELECT 1 FROM TA_MEMBER UR
+      WHERE UR.FARM_NO = FM.FARM_NO
+        AND UR.USER_OK_CD = '991002'  -- 승인된 회원 존재
+  )
+ORDER BY SORT_ORDER, FM.FARM_NO    -- InsightPig 서비스 농장 우선
+```
+
+| 조건 | 설명 |
+|------|------|
+| `USE_YN = 'Y'` | 사용중인 농장만 |
+| `TEST_YN = 'N'` | 테스트 농장 제외 |
+| `USER_OK_CD = '991002'` | 승인된 회원이 1명 이상 존재 |
+| `SORT_ORDER` | 0=InsightPig 서비스 농장 (우선), 1=일반 농장 |
+
+#### 1.2.2 productivity (서비스 농장)
+
+`productivity` 명령은 **InsightPig 서비스 농장**만 대상으로 합니다.
+
+**조회 함수**: `get_service_farm_nos()` ([farm_service.py](../../inspig-etl/src/common/farm_service.py))
+
+```sql
+-- SERVICE_FARM_NO_SQL: 서비스 농장번호 조회
+SELECT DISTINCT F.FARM_NO
+FROM TA_FARM F
+INNER JOIN VW_INS_SERVICE_ACTIVE S ON F.FARM_NO = S.FARM_NO
+WHERE F.USE_YN = 'Y'
+  AND NVL(S.REG_TYPE, 'AUTO') = 'AUTO'  -- 정기 배치 대상만
+ORDER BY F.FARM_NO
+```
+
+| 조건 | 설명 |
+|------|------|
+| `VW_INS_SERVICE_ACTIVE` | 현재 유효한 InsightPig 서비스 구독 |
+| `REG_TYPE = 'AUTO'` | 정기 배치 대상 (MANUAL 제외) |
+| `--exclude-farms` | 제외 농장 지정 가능 (예: `"848,1234"`) |
+
+### 1.3 실행 흐름 (ProductivityCollector)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                      ProductivityCollector 실행 흐름                              │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  [1] 초기화                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │  collector = ProductivityCollector()                                     │    │
+│  │  - base_url: http://10.4.35.10:11000                                    │    │
+│  │  - timeout: 60초                                                         │    │
+│  │  - max_workers: 4 (병렬 처리 스레드 수)                                   │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+│                              │                                                  │
+│                              ▼                                                  │
+│  [2] 수집 (collect)                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │  data = collector.collect(period='W', stat_date='20250120')              │    │
+│  │                                                                         │    │
+│  │  1. 대상 농장 조회                                                        │    │
+│  │     └→ get_service_farm_nos(exclude_farms) → [농장 목록]                 │    │
+│  │                                                                         │    │
+│  │  2. 기간 정보 계산                                                        │    │
+│  │     └→ _calculate_period_info(stat_date, period)                        │    │
+│  │         → stat_year=2025, period_no=4 (4주차)                            │    │
+│  │                                                                         │    │
+│  │  3. API 병렬 호출 (ThreadPoolExecutor, max_workers=4)                    │    │
+│  │     ├→ 농장 A: _fetch_productivity(farm_no, stat_date, period)          │    │
+│  │     ├→ 농장 B: _fetch_productivity(...)                                 │    │
+│  │     ├→ 농장 C: _fetch_productivity(...)                                 │    │
+│  │     └→ 농장 D: _fetch_productivity(...)                                 │    │
+│  │                                                                         │    │
+│  │  4. 응답 변환                                                             │    │
+│  │     └→ _process_response() → PCODE별 Row 생성                            │    │
+│  │         ├→ 031 (교배): C001~C039 매핑                                    │    │
+│  │         ├→ 032 (분만): C001~C024 매핑                                    │    │
+│  │         ├→ 033 (이유): C001~C018 매핑                                    │    │
+│  │         ├→ 034 (번식종합): C001~C030 매핑                                 │    │
+│  │         └→ 035 (모돈현황): C001~C013 매핑                                 │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+│                              │                                                  │
+│                              ▼                                                  │
+│  [3] 저장 (save)                                                                │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │  collector.save(data)                                                    │    │
+│  │                                                                         │    │
+│  │  1. DELETE (UK 기준)                                                     │    │
+│  │     DELETE FROM TS_PRODUCTIVITY                                         │    │
+│  │     WHERE FARM_NO = :FARM_NO AND PCODE = :PCODE                         │    │
+│  │       AND STAT_YEAR = :STAT_YEAR AND PERIOD = :PERIOD                   │    │
+│  │       AND PERIOD_NO = :PERIOD_NO                                        │    │
+│  │                                                                         │    │
+│  │  2. INSERT                                                               │    │
+│  │     INSERT INTO TS_PRODUCTIVITY                                         │    │
+│  │     (SEQ, FARM_NO, PCODE, STAT_YEAR, PERIOD, PERIOD_NO,                 │    │
+│  │      STAT_DATE, C001, C002, ..., INS_DT)                                │    │
+│  │     VALUES (SEQ_TS_PRODUCTIVITY.NEXTVAL, ...)                           │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+│                              │                                                  │
+│                              ▼                                                  │
+│  [4] 연동 (선택)                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │  collector.update_ins_week_sangsi(stat_year, period, period_no)          │    │
+│  │                                                                         │    │
+│  │  TS_PRODUCTIVITY.C001 (PCODE='035') → TS_INS_WEEK.MODON_SANGSI_CNT      │    │
+│  │  (상시모돈수 업데이트)                                                     │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1.4 CLI 실행 예시
+
+> 전체 CLI 명령어는 [07_CLI_REFERENCE.md](./07_CLI_REFERENCE.md) 참조
+
+#### 주요 명령어
+
+```bash
+# 전체 농장 주간 생산성
+python run_etl.py productivity-all --period W
+
+# 전체 농장 월간 생산성
+python run_etl.py productivity-all --period M
+
+# 서비스 농장만 주간 생산성
+python run_etl.py productivity
+
+# Dry-run (확인만)
+python run_etl.py productivity-all --dry-run
+```
+
+#### Shell 스크립트 (Cron용)
+
+```bash
+./run_productivity_all.sh W   # 주간
+./run_productivity_all.sh M   # 월간
+./run_productivity_all.sh Q   # 분기
+```
+
+### 1.5 Python 사용 예시
+
+#### 서비스 농장 수집 (productivity)
+
+```python
+from src.collectors.productivity import ProductivityCollector
+
+# 주간 데이터 수집 (2025년 4주차)
+collector = ProductivityCollector()
+data = collector.collect(period='W', stat_date='20250120')
+collector.save(data)
+
+# 월간 데이터 수집 (2025년 1월)
+data = collector.collect(period='M', stat_date='20250120')
+collector.save(data)
+
+# 상시모돈수 → TS_INS_WEEK 연동
+collector.update_ins_week_sangsi(
+    stat_year=2025,
+    period='W',
+    period_no=4
+)
+```
+
+#### 전체 농장 수집 (productivity-all)
+
+```python
+from src.collectors.productivity import ProductivityCollector
+
+# 전체 농장 주간 데이터 수집
+collector = ProductivityCollector()
+data = collector.collect_all(period='W', stat_date='20250120')
+collector.save(data)
+
+# 전체 농장 월간 데이터 수집
+data = collector.collect_all(period='M', stat_date='20250120')
+collector.save(data)
+
+# 데이터 존재 여부 확인 후 수집 (중복 방지)
+if not collector.exists(farm_no=1387, period='W', stat_date='20250120'):
+    data = collector.collect_if_not_exists(
+        farm_no=1387,
+        period='W',
+        stat_date='20250120'
+    )
+    collector.save(data)
+```
+
 ---
 
 ## 2. 키 컬럼 생성규칙
@@ -454,7 +666,9 @@ python run_etl.py all
 
 ## 관련 문서
 
+- [01_ETL_OVERVIEW.md](./01_ETL_OVERVIEW.md) - ETL 시스템 개요
 - [05_OPERATION_GUIDE.md](./05_OPERATION_GUIDE.md) - ETL 운영 가이드
+- [07_CLI_REFERENCE.md](./07_CLI_REFERENCE.md) - CLI 명령어 레퍼런스
 - [02.table.md](../db/ins/02.table.md) - INS 테이블 전체 구조
 
 ## 관련 소스

@@ -5,6 +5,11 @@ Oracle 데이터베이스 연결 관리
 - 병렬 처리 시 각 스레드가 독립 연결을 사용
 - 연결 풀 크기: min=2, max=10 (설정 가능)
 - 스레드별 독립 연결로 thread-safe 보장
+
+Connection Pool 설정 (Stale Connection 방지):
+- ping_interval: 연결 유효성 검사 주기 (초)
+  → DB 서버 재시작 시 끊어진 연결 자동 감지/제거
+- timeout: 유휴 연결 타임아웃 (초)
 """
 import logging
 from contextlib import contextmanager
@@ -42,7 +47,12 @@ class Database:
         logger.info(f"Oracle library: {ORACLE_LIB}, use_pool: {use_pool}")
 
     def _create_pool(self):
-        """연결 풀 생성"""
+        """연결 풀 생성
+
+        Stale Connection 방지:
+        - ping_interval=60: 60초마다 연결 유효성 검사
+        - timeout=60: 60초 이상 유휴 연결 자동 종료
+        """
         if self._pool is None:
             db_config = self.config.database
             self._pool = oracledb.SessionPool(
@@ -54,8 +64,10 @@ class Database:
                 increment=1,
                 threaded=True,  # 멀티스레드 지원
                 getmode=oracledb.SPOOL_ATTRVAL_WAIT,  # 연결 대기
+                ping_interval=60,  # 연결 유효성 검사 주기 (초) - Stale Connection 방지
+                timeout=60,  # 유휴 연결 타임아웃 (초)
             )
-            logger.info(f"Oracle 연결 풀 생성: min={self.pool_min}, max={self.pool_max}")
+            logger.info(f"Oracle 연결 풀 생성: min={self.pool_min}, max={self.pool_max}, ping_interval=60")
         return self._pool
 
     def connect(self):

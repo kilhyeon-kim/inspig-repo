@@ -185,9 +185,14 @@ python run_etl.py weekly
 # 기상청 데이터만
 python run_etl.py weather
 
+# 전체 농장 생산성 수집
+python run_etl.py productivity-all
+
 # 특정 농장 수동 실행
 python run_etl.py --manual --farm-no 12345
 ```
+
+> 전체 CLI 명령어는 [07_CLI_REFERENCE.md](./07_CLI_REFERENCE.md) 참조
 
 
 ## 7. 운영 서버 정보
@@ -203,16 +208,57 @@ python run_etl.py --manual --farm-no 12345
 
 ## 8. Crontab 스케줄
 
+> **참고**: 운영 서버는 UTC 시간대입니다. KST = UTC + 9시간
+
+### 8.1 전체 스케줄 요약
+
+| 작업 | Cron (UTC) | KST 실행 시각 | 스크립트 | 명령 |
+|------|------------|--------------|----------|------|
+| **생산성 주간** | `5 15 * * 0` | 월 00:05 | run_productivity_all.sh | W |
+| **생산성 월간** | `5 15 28-31 * *` | 1일 00:05 | run_productivity_all.sh | M |
+| **주간 ETL AM7** | `0 17 * * 0` | 월 02:00 | run_weekly.sh | AM7 |
+| **주간 ETL PM2** | `0 3 * * 1` | 월 12:00 | run_weekly.sh | PM2 |
+| 기상청 매시 | `0 * * * *` | 매시 정각 | weather_etl.py | hourly |
+| 기상청 일별 | `30 15 * * *` | 00:30 | weather_etl.py | daily |
+
+### 8.2 Crontab 등록 예시
+
 ```bash
-# 주간: 매주 월요일 02:00
-0 2 * * 1 /data/etl/inspig/run_weekly.sh
+# ============================================================
+# 생산성 데이터 수집 (전체 농장 대상, TS_PRODUCTIVITY)
+# ============================================================
+# 주간 (W): 매주 월요일 00:05 KST
+5 15 * * 0 /data/etl/inspig/run_productivity_all.sh W
 
-# 월간: 매월 1일 03:00 (예정)
-0 3 1 * * /data/etl/inspig/run_monthly.sh
+# 월간 (M): 매월 1일 00:05 KST (월말에 다음날이 1일인지 확인)
+5 15 28-31 * * [ "$(date -d tomorrow +\%d)" = "01" ] && /data/etl/inspig/run_productivity_all.sh M
 
-# 분기: 1,4,7,10월 1일 04:00 (예정)
-0 4 1 1,4,7,10 * /data/etl/inspig/run_quarterly.sh
+# ============================================================
+# 주간 리포트 ETL (InsightPig 서비스 농장 대상)
+# ============================================================
+# AM7 그룹: 월요일 02:00 KST (07:00 알림 발송)
+0 17 * * 0 /data/etl/inspig/run_weekly.sh AM7
+
+# PM2 그룹: 월요일 12:00 KST (14:00 알림 발송)
+0 3 * * 1 /data/etl/inspig/run_weekly.sh PM2
+
+# ============================================================
+# 기상청 데이터 수집
+# ============================================================
+# 매시 정각: ASOS 관측 데이터
+0 * * * * cd /data/etl/inspig && /data/anaconda/anaconda3/envs/inspig-etl/bin/python weather_etl.py
+
+# 매일 00:30 KST: ASOS 일별 통계
+30 15 * * * cd /data/etl/inspig && /data/anaconda/anaconda3/envs/inspig-etl/bin/python weather_etl.py daily
 ```
+
+### 8.3 수집 대상 구분
+
+| ETL 종류 | 대상 농장 | 조회 함수 | 설명 |
+|----------|----------|----------|------|
+| 생산성 (productivity-all) | 승인 회원 있는 전체 농장 | `get_all_farm_nos()` | InsightPig 서비스 농장 우선 수집 |
+| 주간 리포트 (weekly) | InsightPig 서비스 농장 | `get_service_farms()` | REG_TYPE='AUTO' 만 대상 |
+| 기상청 (weather) | 서비스 농장 지역 | - | 시군구 코드 기준 |
 
 
 ## 9. 관련 문서
@@ -223,3 +269,5 @@ python run_etl.py --manual --farm-no 12345
 | [03_MONTHLY_REPORT.md](./03_MONTHLY_REPORT.md) | 월간 리포트 상세 (예정) |
 | [04_QUARTERLY_REPORT.md](./04_QUARTERLY_REPORT.md) | 분기 리포트 상세 (예정) |
 | [05_OPERATION_GUIDE.md](./05_OPERATION_GUIDE.md) | 운영 가이드 (실행, 모니터링, 트러블슈팅) |
+| [06_PRODUCTIVITY_COLLECT.md](./06_PRODUCTIVITY_COLLECT.md) | 생산성 데이터 수집 (TS_PRODUCTIVITY) |
+| [07_CLI_REFERENCE.md](./07_CLI_REFERENCE.md) | CLI 명령어 레퍼런스 |
