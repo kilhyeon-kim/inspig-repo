@@ -192,7 +192,7 @@ python run_etl.py productivity-all
 python run_etl.py --manual --farm-no 12345
 ```
 
-> 전체 CLI 명령어는 [07_CLI_REFERENCE.md](./07_CLI_REFERENCE.md) 참조
+> 전체 CLI 명령어는 [07_RUN_ETL_CLI.md](./07_RUN_ETL_CLI.md) 참조
 
 
 ## 7. 운영 서버 정보
@@ -270,4 +270,4 @@ python run_etl.py --manual --farm-no 12345
 | [04_QUARTERLY_REPORT.md](./04_QUARTERLY_REPORT.md) | 분기 리포트 상세 (예정) |
 | [05_OPERATION_GUIDE.md](./05_OPERATION_GUIDE.md) | 운영 가이드 (실행, 모니터링, 트러블슈팅) |
 | [06_PRODUCTIVITY_COLLECT.md](./06_PRODUCTIVITY_COLLECT.md) | 생산성 데이터 수집 (TS_PRODUCTIVITY) |
-| [07_CLI_REFERENCE.md](./07_CLI_REFERENCE.md) | CLI 명령어 레퍼런스 |
+| [07_RUN_ETL_CLI.md](./07_RUN_ETL_CLI.md) | run_etl.py CLI 레퍼런스 |

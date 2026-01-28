@@ -151,7 +151,7 @@ ORDER BY F.FARM_NO
 
 ### 1.4 CLI 실행 예시
 
-> 전체 CLI 명령어는 [07_CLI_REFERENCE.md](./07_CLI_REFERENCE.md) 참조
+> 전체 CLI 명령어는 [07_RUN_ETL_CLI.md](./07_RUN_ETL_CLI.md) 참조
 
 #### 주요 명령어
 
@@ -668,7 +668,7 @@ python run_etl.py all
 
 - [01_ETL_OVERVIEW.md](./01_ETL_OVERVIEW.md) - ETL 시스템 개요
 - [05_OPERATION_GUIDE.md](./05_OPERATION_GUIDE.md) - ETL 운영 가이드
-- [07_CLI_REFERENCE.md](./07_CLI_REFERENCE.md) - CLI 명령어 레퍼런스
+- [07_RUN_ETL_CLI.md](./07_RUN_ETL_CLI.md) - CLI 명령어 레퍼런스
 - [02.table.md](../db/ins/02.table.md) - INS 테이블 전체 구조
 
 ## 관련 소스
