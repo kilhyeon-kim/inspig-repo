@@ -183,6 +183,7 @@ class ProductivityCollector(BaseCollector):
         stat_date: Optional[str] = None,
         period: str = 'W',
         exclude_farms: Optional[str] = None,
+        skip_existing: bool = False,
         **kwargs
     ) -> List[Dict[str, Any]]:
         """생산성 데이터 수집
@@ -195,6 +196,8 @@ class ProductivityCollector(BaseCollector):
             period: 기간 구분 (W:주간, M:월간, Q:분기)
                    기본값 'W' (주간)
             exclude_farms: 제외할 농장 목록 (콤마 구분, 예: "848,1234")
+            skip_existing: True면 이미 수집된 농장은 스킵 (중복 수집 방지)
+                          productivity-all에서 서비스 농장 중복 수집 방지용
 
         Returns:
             수집된 데이터 리스트
@@ -223,32 +226,42 @@ class ProductivityCollector(BaseCollector):
 
         # 년도, 기간차수 계산
         period_info = self._calculate_period_info(stat_date, period)
+        stat_year = period_info['stat_year']
+        period_no = period_info['period_no']
 
         period_name = {'W': '주간', 'M': '월간', 'Q': '분기'}.get(period, period)
         self.logger.info(
             f"기준 날짜: {stat_date}, 대상 농장: {len(farm_list)}개, "
             f"기간: {period_name}({period}), "
-            f"년도: {period_info['stat_year']}, 차수: {period_info['period_no']}"
+            f"년도: {stat_year}, 차수: {period_no}, "
+            f"skip_existing: {skip_existing}"
         )
 
         # 결과 저장
         result = []
         success_cnt = 0
         error_cnt = 0
+        skip_cnt = 0
 
-        def fetch_single_farm(farm: Dict) -> List[Dict]:
-            """단일 농장 데이터 수집"""
+        def fetch_single_farm(farm: Dict) -> tuple:
+            """단일 농장 데이터 수집
+            Returns: (data_list, skipped)
+            """
             farm_no = farm.get('FARM_NO')
             try:
+                # skip_existing 옵션: 이미 수집된 농장은 스킵
+                if skip_existing and self.exists(farm_no, stat_year, period, period_no):
+                    return ([], True)  # skipped
+
                 # API 호출 (Q는 API에서 지원하지 않으므로 M으로 호출)
                 api_period = 'M' if period == 'Q' else period
                 data = self._fetch_productivity(farm_no, stat_date, api_period)
                 if data and 'data' in data:
-                    return self._process_response(farm_no, stat_date, period, period_info, data)
-                return []
+                    return (self._process_response(farm_no, stat_date, period, period_info, data), False)
+                return ([], False)
             except Exception as e:
                 self.logger.error(f"농장 {farm_no} 생산성 수집 실패: {e}")
-                return []
+                return ([], False)
 
         # 병렬 처리로 API 호출
         total_farms = len(farm_list)
@@ -268,8 +281,11 @@ class ProductivityCollector(BaseCollector):
                 processed_cnt += 1
 
                 try:
-                    farm_data = future.result()
-                    if farm_data:
+                    farm_data, skipped = future.result()
+                    if skipped:
+                        skip_cnt += 1
+                        self.logger.info(f"  [{processed_cnt}/{total_farms}] 농장 {farm_no}: SKIP (이미 수집됨)")
+                    elif farm_data:
                         result.extend(farm_data)
                         success_cnt += 1
                         self.logger.info(f"  [{processed_cnt}/{total_farms}] 농장 {farm_no}: OK ({len(farm_data)}건)")
@@ -280,7 +296,7 @@ class ProductivityCollector(BaseCollector):
                     error_cnt += 1
                     self.logger.error(f"  [{processed_cnt}/{total_farms}] 농장 {farm_no}: 실패 - {e}")
 
-        self.logger.info(f"수집 완료: 성공 {success_cnt}개, 실패 {error_cnt}개, 총 레코드 {len(result)}건")
+        self.logger.info(f"수집 완료: 성공 {success_cnt}개, 스킵 {skip_cnt}개, 실패 {error_cnt}개, 총 레코드 {len(result)}건")
         return result
 
     def _get_farm_list(self, exclude_farms: Optional[str] = None) -> List[Dict]:

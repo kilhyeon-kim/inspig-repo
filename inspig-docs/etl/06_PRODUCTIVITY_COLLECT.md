@@ -19,16 +19,99 @@
 
 | 명령 | Cron (UTC) | KST 실행 | 대상 농장 | 설명 |
 |------|------------|----------|----------|------|
-| `productivity-all W` | `5 15 * * 0` | 월 00:05 | 전체 농장 | 승인회원 있는 모든 농장 |
-| `productivity-all M` | `5 15 28-31 * *` | 1일 00:05 | 전체 농장 | 월간 생산성 데이터 |
+| `weekly` | `0 17 * * 0` | 월 02:00 | 서비스 농장 | 주간 리포트 ETL 시 생산성 수집 |
+| `productivity-all W` | `5 15 * * 0` | 월 00:05 | 전체 농장 | 이미 수집된 농장 스킵 |
+| `productivity-all M` | `5 15 28-31 * *` | 1일 00:05 | 전체 농장 | 이미 수집된 농장 스킵 |
 | `productivity` | - | 수동 | 서비스 농장 | InsightPig 서비스 농장만 |
-| `weekly` | `0 17 * * 0` | 월 02:00 | 서비스 농장 | 주간 리포트 ETL 시 함께 수집 |
 
-### 1.2 수집 대상
+**수집 순서 및 중복 방지**:
+1. `weekly` (월 02:00): 서비스 농장 생산성 먼저 수집
+2. `productivity-all` (월 00:05 다음 주): **이미 수집된 농장은 스킵** (`skip_existing=True`)
+   - 서비스 농장: weekly에서 수집됨 → 스킵
+   - 일반 농장: 미수집 → 수집
 
-#### 1.2.1 productivity-all (전체 농장)
+### 1.2 농장 유형 정의
 
-`productivity-all` 명령은 **승인된 회원이 있는 모든 농장**을 대상으로 합니다.
+생산성 수집 대상 농장은 3가지 유형으로 구분됩니다.
+
+| 유형 | 명칭 | 조회 함수 | 사용처 |
+|------|------|----------|--------|
+| **서비스 농장** | InsightPig 서비스 농장 | `get_service_farm_nos()` | `productivity`, `weekly` |
+| **전체 농장** | 서비스 농장 포함 전체 | `get_all_farm_nos()` | `productivity-all` |
+| **일반 농장** | 서비스 농장 제외 | 전체 - 서비스 | (수동 필터) |
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              전체 농장 (승인회원 보유)                         │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │                                                       │  │
+│  │   ┌─────────────────────┐    ┌─────────────────────┐ │  │
+│  │   │  InsightPig         │    │                     │ │  │
+│  │   │  서비스 농장         │    │    일반 농장         │ │  │
+│  │   │  (VW_INS_SERVICE_   │    │  (서비스 미가입)     │ │  │
+│  │   │   ACTIVE 가입)      │    │                     │ │  │
+│  │   │                     │    │                     │ │  │
+│  │   │  → productivity     │    │                     │ │  │
+│  │   │  → weekly           │    │                     │ │  │
+│  │   └─────────────────────┘    └─────────────────────┘ │  │
+│  │                                                       │  │
+│  │              ← productivity-all →                     │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 1.3 API 호출 정보
+
+#### 1.3.1 API URL 및 파라미터
+
+```
+GET http://10.4.35.10:11000/statistics/productivity/period/{farmNo}
+```
+
+| 파라미터 | 값 | 구분 | 설명 |
+|----------|-----|------|------|
+| `statDate` | `YYYY-MM-DD` | **가변** | 기준일 (예: 2025-01-20) |
+| `period` | `W` / `M` | **가변** | W=주간, M=월간 |
+| `memberId` | `null` | 고정 | 회원ID (기본값 null) |
+| `lang` | `ko` | 고정 | 언어 |
+| `serviceId` | `01051` | 고정 | 서비스ID |
+| `sizeOfPeriod` | `1` | 고정 | 기간 크기 |
+| `numOfPeriod` | `1` | 고정 | 기간 수 |
+| `pumjongCd` | `- 전체 -` | 고정 | 품종코드 |
+| `reportType` | `1` | 고정 | 리포트 타입 |
+
+#### 1.3.2 W/M 호출 예시
+
+**주간 (W)** - 2025년 4주차:
+```
+GET http://10.4.35.10:11000/statistics/productivity/period/1387
+    ?statDate=2025-01-20
+    &period=W
+    &memberId=null&lang=ko&serviceId=01051&sizeOfPeriod=1&numOfPeriod=1
+    &pumjongCd=- 전체 -&reportType=1
+```
+
+**월간 (M)** - 2025년 1월:
+```
+GET http://10.4.35.10:11000/statistics/productivity/period/1387
+    ?statDate=2025-01-20
+    &period=M
+    &memberId=null&lang=ko&serviceId=01051&sizeOfPeriod=1&numOfPeriod=1
+    &pumjongCd=- 전체 -&reportType=1
+```
+
+> **W와 M의 차이**: `period` 파라미터 값만 다름 (나머지 동일)
+
+### 1.4 수집 대상
+
+#### 1.4.1 productivity-all (전체 농장)
+
+`productivity-all` 명령은 **승인회원 보유 전체 농장** (서비스 농장 + 일반 농장)을 대상으로 합니다.
+
+**중복 수집 방지 (`skip_existing=True`)**:
+- 이미 TS_PRODUCTIVITY에 데이터가 있는 농장은 **스킵**
+- UK 기준: `FARM_NO + STAT_YEAR + PERIOD + PERIOD_NO`
+- 서비스 농장은 `weekly` ETL에서 먼저 수집되므로 스킵됨
 
 **조회 함수**: `get_all_farm_nos()` ([farm_service.py](../../inspig-etl/src/common/farm_service.py))
 
@@ -53,9 +136,10 @@ ORDER BY SORT_ORDER, FM.FARM_NO    -- InsightPig 서비스 농장 우선
 | `USE_YN = 'Y'` | 사용중인 농장만 |
 | `TEST_YN = 'N'` | 테스트 농장 제외 |
 | `USER_OK_CD = '991002'` | 승인된 회원이 1명 이상 존재 |
-| `SORT_ORDER` | 0=InsightPig 서비스 농장 (우선), 1=일반 농장 |
+| `SORT_ORDER = 0` | InsightPig 서비스 농장 (우선 수집) |
+| `SORT_ORDER = 1` | 일반 농장 (서비스 미가입) |
 
-#### 1.2.2 productivity (서비스 농장)
+#### 1.4.2 productivity (서비스 농장)
 
 `productivity` 명령은 **InsightPig 서비스 농장**만 대상으로 합니다.
 
@@ -77,7 +161,7 @@ ORDER BY F.FARM_NO
 | `REG_TYPE = 'AUTO'` | 정기 배치 대상 (MANUAL 제외) |
 | `--exclude-farms` | 제외 농장 지정 가능 (예: `"848,1234"`) |
 
-### 1.3 실행 흐름 (ProductivityCollector)
+### 1.5 실행 흐름 (ProductivityCollector)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
@@ -149,7 +233,7 @@ ORDER BY F.FARM_NO
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.4 CLI 실행 예시
+### 1.6 CLI 실행 예시
 
 > 전체 CLI 명령어는 [07_RUN_ETL_CLI.md](./07_RUN_ETL_CLI.md) 참조
 
@@ -177,7 +261,7 @@ python run_etl.py productivity-all --dry-run
 ./run_productivity_all.sh Q   # 분기
 ```
 
-### 1.5 Python 사용 예시
+### 1.7 Python 사용 예시
 
 #### 서비스 농장 수집 (productivity)
 

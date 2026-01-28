@@ -407,6 +407,7 @@ def main():
         elif args.command == 'productivity-all':
             # 전체 농장 생산성 데이터 수집 (InsightPig 서비스 농장 우선)
             # 크론: 매주 월요일 00:05 (--period W), 매월 1일 00:05 (--period M)
+            # skip_existing=True: 이미 수집된 농장은 스킵 (weekly에서 서비스 농장 수집 시 중복 방지)
             period = args.period
             period_name = {'W': '주간', 'M': '월간', 'Q': '분기'}.get(period, period)
 
@@ -419,6 +420,7 @@ def main():
                 print(f"  - InsightPig 서비스 농장: {service_cnt}개")
                 print(f"  - 일반 농장: {len(farm_list) - service_cnt}개")
                 print(f"  - 기간구분: {period} ({period_name})")
+                print(f"  - skip_existing: True (이미 수집된 농장 스킵)")
             else:
                 db = Database(config)
                 farm_list = get_all_farm_nos(db, exclude_farms=args.exclude)
@@ -429,10 +431,11 @@ def main():
                 service_cnt = sum(1 for f in farm_list if f.get('SORT_ORDER') == 0)
                 print(f"대상 농장: {len(farm_list)}개 (서비스: {service_cnt}, 일반: {len(farm_list) - service_cnt})")
                 print(f"기간구분: {period} ({period_name})")
+                print(f"skip_existing: True (이미 수집된 농장 스킵)")
                 print()
 
                 collector = ProductivityCollector(config, db)
-                count = collector.run(farm_list=farm_list, stat_date=base_date, period=period)
+                count = collector.run(farm_list=farm_list, stat_date=base_date, period=period, skip_existing=True)
                 print(f"전체 농장 생산성 데이터 수집 완료: {count}건")
 
         sys.exit(0)

@@ -18,7 +18,9 @@ python run_etl.py [command] [options]
 | `quarterly` | 분기 리포트 ETL (예정) | 서비스 농장 |
 | `weather` | 기상청 데이터 수집 | 서비스 농장 지역 |
 | `productivity` | 생산성 데이터 수집 | 서비스 농장 |
-| `productivity-all` | 전체 농장 생산성 수집 | 전체 농장 |
+| `productivity-all` | 전체 농장 생산성 수집 | 전체 농장 (서비스+일반) |
+
+> **농장 유형 정의**: [06_PRODUCTIVITY_COLLECT.md](./06_PRODUCTIVITY_COLLECT.md#12-농장-유형-정의) 참조
 
 ---
 
@@ -26,7 +28,9 @@ python run_etl.py [command] [options]
 
 ### 2.1 productivity-all (전체 농장)
 
-승인된 회원이 있는 **모든 농장** 대상. InsightPig 서비스 농장 우선 수집.
+**승인회원 보유 전체 농장** (서비스 농장 + 일반 농장) 대상. 서비스 농장 우선 수집.
+
+> **API 호출 정보**: [06_PRODUCTIVITY_COLLECT.md](./06_PRODUCTIVITY_COLLECT.md#13-api-호출-정보) 참조
 
 ```bash
 # 주간 생산성 (기본값: W)
